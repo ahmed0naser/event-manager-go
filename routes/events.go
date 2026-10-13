@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ahmed0naser/event-manager-go/db"
 	"github.com/ahmed0naser/event-manager-go/models"
 	"github.com/gin-gonic/gin"
 )
@@ -33,15 +32,14 @@ func getEvent(context *gin.Context) {
 
 }
 func createEvent(context *gin.Context) {
-	db.InitDb()
 	var event models.Event
 	err := context.ShouldBindJSON(&event)
 	if err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"status": "failed to parse input"})
 		return
 	}
-	event.ID = 1
-	event.UserID = 1
+	userId:=context.GetInt64("userId")
+	event.UserID = int(userId)
 	err = event.Save()
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "couldn't create event"})
@@ -56,10 +54,15 @@ func updateEvent(context *gin.Context){
 		context.JSON(http.StatusBadRequest, gin.H{"message": "couldn't parse event id"})
 		return
 	}
-	_, err = models.GetEventByID(eventId)
+	userId:=context.GetInt64("userId")
+	event, err := models.GetEventByID(eventId)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "couldn't fetch event"})
 		return
+	}
+	if int64(event.UserID)!=userId{
+		context.JSON(http.StatusUnauthorized,gin.H{"message":"No Authorized user"})
+return
 	}
 	var updatedEvent models.Event
 	err = context.ShouldBindJSON(&updatedEvent)
@@ -82,10 +85,15 @@ eventId, err := strconv.ParseInt(context.Param("id"), 10, 64)
 		context.JSON(http.StatusBadRequest, gin.H{"message": "couldn't parse event id"})
 		return
 	}
+	userId:=context.GetInt64("userId")
 	event, err := models.GetEventByID(eventId)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "couldn't fetch event"})
 		return
+	}
+		if int64(event.UserID)!=userId{
+		context.JSON(http.StatusUnauthorized,gin.H{"message":"No Authorized user"})
+return
 	}
 	err=event.Delete()
 	if err != nil {
